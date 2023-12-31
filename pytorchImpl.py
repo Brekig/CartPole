@@ -1,4 +1,5 @@
 import time
+import imageio
 from collections import deque, namedtuple
 import gymnasium as gym
 import numpy as np
@@ -53,9 +54,9 @@ class Reinforcement:
         self.TAU = 1e-3  # Soft update parameter.
         self.ALPHA = 1e-3
         self.MINIBATCH_SIZE = 64
-        self.GAMMA = 0.99
+        self.GAMMA = 0.995
         self.learning_rate = 0.001
-        self.epsilon = 0.6
+        self.epsilon = 1
         self.rewards = []
         self.total_points = []
         self.network = QNetwork(space_dim, action_dim)
@@ -141,14 +142,37 @@ class Reinforcement:
         for target_param, q_net_param in zip(self.target_network.parameters(), self.network.parameters()):
             target_param.data.copy_(self.TAU * q_net_param.data + (1.0 - self.TAU) * target_param.data)
 
+
+
+def create_video(filename, env, q_network, fps=30):
+    start = time.time()
+    with imageio.get_writer(filename, fps=fps) as video:
+        done = False
+        state, _ = env.reset()
+        frame = env.render()
+        video.append_data(frame)
+        while not done:
+            if time.time() - start > 20:
+                break
+            state = torch.from_numpy(np.expand_dims(state, axis=0))
+            q_values = q_network(state)
+            action = np.argmax(q_values.detach().numpy()[0])
+            state, _, done, _, _ = env.step(action)
+            frame = env.render()
+            video.append_data(frame)
+
+    env.close()
+
 if __name__ == "__main__":
     start = time.time()
     MEMORY_SIZE = 100_000
+    FINISH_SCORE = 450
+    NUM_P_AVG = 100
     env = gym.make('CartPole-v1', render_mode='rgb_array')
     state_size = env.observation_space.shape[0]
     num_actions = env.action_space.n
-    total_num_episodes = 2500
-    max_num_steps = 1500
+    total_num_episodes = 10000
+    max_num_steps = 2000
     total_points_hist = []
     memory_buffer = deque(maxlen=MEMORY_SIZE)
     
@@ -156,9 +180,8 @@ if __name__ == "__main__":
     
     experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
     
-    NUM_P_AVG = 100
     
-    for x in [3,5,7]: #number of steps to update target network
+    for x in [7]: #number of steps to update target network
         agent = Reinforcement(state_size, num_actions)
         for episode in range(total_num_episodes):
             state, _ = env.reset()
@@ -194,13 +217,18 @@ if __name__ == "__main__":
                 
             # We will consider that the environment is solved if we get an
             # average of 200 points in the last 100 episodes.
-            if avg_latest_points >= 400.0:
+            if avg_latest_points >= FINISH_SCORE:
                 print(f"\n\nEnvironment solved in {episode+1} episodes!")
-                agent.networktwork.save('Cart_pole_model.h5')
+                # agent.network.save('Cart_pole_model.h5')
+                torch.save(agent.network.state_dict(), 'Cart_pole_model.pth')
                 break
             
     tot_time = time.time() - start
 
     print(f"\nTotal Runtime: {tot_time:.2f} s ({(tot_time/60):.2f} min)")
+    
+    
+    create_video("CartPole_Pytorch.mp4", env, agent.network)
+    
         
         
