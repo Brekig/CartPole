@@ -171,7 +171,7 @@ if __name__ == "__main__":
     env = gym.make('CartPole-v1', render_mode='rgb_array')
     state_size = env.observation_space.shape[0]
     num_actions = env.action_space.n
-    total_num_episodes = 10000
+    total_num_episodes = 9000
     max_num_steps = 2000
     total_points_hist = []
     memory_buffer = deque(maxlen=MEMORY_SIZE)
@@ -210,7 +210,7 @@ if __name__ == "__main__":
             #update epsilon
             agent.update_epsilon()
             
-            print(f"\rEpisode {episode+1} | Total point average of the last {NUM_P_AVG} episodes: {avg_latest_points:.2f}", end="")
+            print(f"\rEpisode {episode+1} | Total point average of the last {NUM_P_AVG} episodes: {avg_latest_points:.2f}: epsion = {agent.epsilon}", end="")
 
             if (episode+1) % NUM_P_AVG == 0:
                 print(f"\rEpisode {episode+1} | Total point average of the last {NUM_P_AVG} episodes: {avg_latest_points:.2f}")
@@ -229,6 +229,15 @@ if __name__ == "__main__":
     
     
     create_video("CartPole_Pytorch.mp4", env, agent.network)
+    
+    rewards_to_plot = [rewards for rewards in total_points_hist]
+    df1 = pd.DataFrame(rewards_to_plot).melt()
+    df1.rename(columns={"variable": "episodes", "value": "reward"}, inplace=True)
+    sns.set(style="darkgrid", context="talk", palette="rainbow")
+    sns.lineplot(x="episodes", y="reward", data=df1).set(
+        title="REINFORCE for InvertedPendulum-v4"
+    )
+    plt.show()
     
         
         
